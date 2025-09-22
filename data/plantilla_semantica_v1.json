@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "campos_requeridos": [
+    "proyecto",
+    "autor",
+    "fecha",
+    "lugar",
+    "tipologia",
+    "materialidad",
+    "escala",
+    "terc",
+    "ism",
+    "descripcion"
+  ],
+  "prompt": "Proyecto: {{proyecto}} ({{lugar}}, {{fecha}}) — {{tipologia}}.\nMaterialidad: {{materialidad}}. Escala: {{escala}}.\nLectura TERC ({{terc}}) e ISM ({{ism}}): {{frase_terc}}; {{frase_ism}}.\nSíntesis: {{descripcion}}.\nDictamen: {{dictamen}}",
+  "dictamen_reglas": [
+    {
+      "si": "terc>=70 and ism>=70",
+      "texto": "alto impacto estético‑sistémico; priorizar documentación, métricas bioclimáticas y replicabilidad."
+    },
+    {
+      "si": "terc>=70 and ism<70",
+      "texto": "énfasis expresivo; ajustar acoples y mantenimiento para estabilidad operativa."
+    },
+    {
+      "si": "terc<70 and ism>=70",
+      "texto": "resolución técnica sólida; fortalecer narrativa y comunicación pública."
+    },
+    {
+      "si": "terc<70 and ism<70",
+      "texto": "estado en maduración; plan de iteraciones y pruebas controladas."
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TERC·ISM — Demo</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<header>
+  <h1>TERC·ISM — Generador de narrativas</h1>
+  <div class="status" id="status">Listo</div>
+</header>
+<main>
+  <div class="controls">
+    <div>
+      <div class="badge">Fuente CSV</div>
+      <div><code>./data/demo_proyectos_TERC_ISM.csv</code></div>
+      <div class="status">Puedes reemplazar el CSV en <code>/data/</code> manteniendo los encabezados.</div>
+    </div>
+    <div>
+      <div class="badge">Plantilla</div>
+      <div><code>./data/plantilla_semantica_v1.json</code></div>
+    </div>
+    <div>
+      <div class="badge">Patrones</div>
+      <div><code>./data/patrones_semanticos.json</code></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section>
+      <h2>Tabla</h2>
+      <div id="table"></div>
+    </section>
+    <aside>
+      <h2>Narrativa</h2>
+      <select id="rowSelect"></select>
+      <textarea id="output" readonly></textarea>
+    </aside>
+  </div>
+</main>
+<footer>GitHub Pages ready — rutas relativas.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+const S = (id)=>document.getElementById(id);
+const statusEl = S('status');
+const outEl = S('output');
+const rowSel = S('rowSelect');
+const tableHost = S('table');
+
+const CSV_URL = './data/demo_proyectos_TERC_ISM.csv';
+const PLANTILLA_URL = './data/plantilla_semantica_v1.json';
+const PATRONES_URL = './data/patrones_semanticos.json';
+
+let DATA=[], PLANTILLA=null, PATRONES=null;
+
+async function loadJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('No se pudo cargar '+url);
+  return await r.json();
+}
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+
+function etiquetaYadjetivos(valor, defs){
+  const d = defs.find(x => valor>=x.min && valor<=x.max);
+  const adj1 = pick(d.adjetivos);
+  const adj2 = pick(d.adjetivos.filter(a=>a!==adj1));
+  return {etiqueta:d.etiqueta, adj1, adj2};
+}
+
+function renderTabla(rows){
+  if(!rows.length){ tableHost.textContent='Sin datos'; return; }
+  const cols = Object.keys(rows[0]);
+  const thead = '<thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead>';
+  const body = rows.map(r=>'<tr>'+cols.map(c=>`<td>${r[c]}</td>`).join('')+'</tr>').join('');
+  tableHost.innerHTML = '<table>'+thead+'<tbody>'+body+'</tbody></table>';
+}
+
+function evalDictamen(reglas, row){
+  for(const r of reglas){
+    try{
+      const expr = r.si.replace(/terc/g, row.terc).replace(/ism/g, row.ism);
+      if(Function('return ('+expr+')')()) return r.texto;
+    }catch(e){ /* ignora */ }
+  }
+  return 's/i';
+}
+
+function compilar(row){
+  const t = etiquetaYadjetivos(Number(row.terc), PATRONES.terc);
+  const i = etiquetaYadjetivos(Number(row.ism), PATRONES.ism);
+  const frase_terc = PATRONES.plantillasAux.frase_terc[t.etiqueta]
+                      .replace('{adj1}', t.adj1).replace('{adj2}', t.adj2);
+  const frase_ism = PATRONES.plantillasAux.frase_ism[i.etiqueta]
+                      .replace('{adj1}', i.adj1).replace('{adj2}', i.adj2);
+  const dictamen = evalDictamen(PLANTILLA.dictamen_reglas, row);
+  let txt = PLANTILLA.prompt;
+  for (const k of Object.keys(row)){
+    txt = txt.replaceAll('{{'+k+'}}', row[k]);
+  }
+  txt = txt.replaceAll('{{frase_terc}}', frase_terc)
+           .replaceAll('{{frase_ism}}', frase_ism)
+           .replaceAll('{{dictamen}}', dictamen);
+  return txt;
+}
+
+function actualizarSalida(index){
+  const r = DATA[index];
+  outEl.value = compilar(r);
+}
+
+function poblarSelector(rows){
+  rowSel.innerHTML = rows.map((r,idx)=>`<option value="${idx}">${idx+1}. ${r.proyecto}</option>`).join('');
+  rowSel.addEventListener('change', e=> actualizarSalida(e.target.value));
+  actualizarSalida(0);
+}
+
+async function boot(){
+  try{
+    statusEl.textContent='Cargando JSON…';
+    [PLANTILLA,PATRONES] = await Promise.all([loadJSON(PLANTILLA_URL), loadJSON(PATRONES_URL)]);
+    statusEl.textContent='Cargando CSV…';
+    Papa.parse(CSV_URL, {
+      download:true, header:true, skipEmptyLines:true, worker:true,
+      complete: (res)=>{
+        DATA = res.data.map(r => ({
+          ...r,
+          terc: Number(r.terc),
+          ism: Number(r.ism)
+        }));
+        renderTabla(DATA);
+        poblarSelector(DATA);
+        statusEl.textContent=`Listo · filas: ${DATA.length}`;
+      },
+      error: (err)=>{ statusEl.textContent='Error CSV: '+err.message; }
+    });
+  }catch(e){
+    statusEl.textContent='Error: '+e.message;
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
