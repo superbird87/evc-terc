@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evaluador MSDA/TERC + ISM — v3</title>
+<link rel="stylesheet" href="styles_v3.css">
+</head>
+<body>
+<header>
+  <h1>Evaluador MSDA/TERC + ISM — v3</h1>
+  <p class="muted">Ingrese valores (0–100) para C1–C21 y los 3 del ISM, o cargue un CSV con la plantilla v3.</p>
+</header>
+
+<main>
+  <section class="card">
+    <div class="row">
+      <label class="lbl">Proyecto</label>
+      <input id="projName" class="field" placeholder="Nombre del proyecto">
+      <input type="file" id="csvPick" accept=".csv" style="display:none">
+      <label for="csvPick" class="btn ghost">Cargar CSV (plantilla v3)</label>
+      <button id="goCalc" class="btn">Calcular + Dibujar</button>
+      <button id="goPNG" class="btn ghost">Exportar PNG</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Entradas — C1..C21 + ISM (0–100)</h2>
+    <div class="grid">
+      <div>
+        <h3>Asimilación</h3>
+        <label>C1 Carga Informativa <input type="number" id="C1" min="0" max="100" class="num"></label>
+        <label>C2 Diversidad Perceptual <input type="number" id="C2" min="0" max="100" class="num"></label>
+        <label>C3 Conectividad Sensorial <input type="number" id="C3" min="0" max="100" class="num"></label>
+        <label>C4 Accesibilidad Cognitiva <input type="number" id="C4" min="0" max="100" class="num"></label>
+        <h3>Acomodación</h3>
+        <label>C5 Plasticidad Ambiental <input type="number" id="C5" min="0" max="100" class="num"></label>
+        <label>C6 Complejidad vs Legibilidad <input type="number" id="C6" min="0" max="100" class="num"></label>
+        <label>C7 Resonancia Cognitiva <input type="number" id="C7" min="0" max="100" class="num"></label>
+        <label>C8 Interacción Biofílica <input type="number" id="C8" min="0" max="100" class="num"></label>
+      </div>
+      <div>
+        <h3>Equilibrio Adaptativo</h3>
+        <label>C9 Engagement Espacial <input type="number" id="C9" min="0" max="100" class="num"></label>
+        <label>C10 Fluidez de Navegación <input type="number" id="C10" min="0" max="100" class="num"></label>
+        <label>C11 Efecto Memorístico <input type="number" id="C11" min="0" max="100" class="num"></label>
+        <label>C12 Resonancia Emocional <input type="number" id="C12" min="0" max="100" class="num"></label>
+        <h3>Biomímesis (Bioestructural)</h3>
+        <label>C13 Eficiencia Geométrica <input type="number" id="C13" min="0" max="100" class="num"></label>
+        <label>C14 Optimización Estructural <input type="number" id="C14" min="0" max="100" class="num"></label>
+        <label>C15 Uso de Biomateriales <input type="number" id="C15" min="0" max="100" class="num"></label>
+      </div>
+      <div>
+        <h3>Biomímesis (Biofísica)</h3>
+        <label>C16 Eficiencia Energética <input type="number" id="C16" min="0" max="100" class="num"></label>
+        <label>C17 Adaptabilidad Térmica <input type="number" id="C17" min="0" max="100" class="num"></label>
+        <label>C18 Captación y Uso de Agua <input type="number" id="C18" min="0" max="100" class="num"></label>
+        <h3>Ecosistémica</h3>
+        <label>C19 Integración con la Naturaleza <input type="number" id="C19" min="0" max="100" class="num"></label>
+        <label>C20 Ciclo de Materiales <input type="number" id="C20" min="0" max="100" class="num"></label>
+        <label>C21 Bienestar Biofílico <input type="number" id="C21" min="0" max="100" class="num"></label>
+        <h3>ISM</h3>
+        <label>Equidad de acceso <input type="number" id="EQ" min="0" max="100" class="num"></label>
+        <label>Diversidad de usos y actores <input type="number" id="DIV" min="0" max="100" class="num"></label>
+        <label>Resonancia comunitaria <input type="number" id="RES" min="0" max="100" class="num"></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Radar MSDA/TERC (6) + Triángulo ISM (3)</h2>
+    <canvas id="plot" width="940" height="940"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>Resumen</h2>
+    <pre id="dump" class="mono"></pre>
+  </section>
+</main>
+
+<script>
+// ===== Utilidades (nombres nuevos) =====
+const g = (id)=>document.getElementById(id);
+const nv = (id)=>{ const x=parseFloat(g(id).value); return isNaN(x)?null:x; };
+const prom = (a)=>{ const f=a.filter(v=>v!=null); return f.length? f.reduce((s,v)=>s+v,0)/f.length : null; };
+const escala = (p)=> p==null?'—':(p>=80?'Alto':(p>=60?'Medio':(p>=40?'Bajo':'Muy Bajo')));
+
+// ===== Cálculo de índices =====
+function calcAll(){
+  const C1=nv('C1'), C2=nv('C2'), C3=nv('C3'), C4=nv('C4');
+  const C5=nv('C5'), C6=nv('C6'), C7=nv('C7'), C8=nv('C8');
+  const C9=nv('C9'), C10=nv('C10'), C11=nv('C11'), C12=nv('C12');
+  const C13=nv('C13'), C14=nv('C14'), C15=nv('C15');
+  const C16=nv('C16'), C17=nv('C17'), C18=nv('C18');
+  const C19=nv('C19'), C20=nv('C20'), C21=nv('C21');
+
+  const IPC = prom([C1,C2,C3,C4]);
+  const IAE = prom([C5,C6,C7,C8]);
+  const IIM = prom([C9,C10,C11,C12]);
+  const IEB = prom([C13,C14,C15]);
+  const IAB = prom([C16,C17,C18]);
+  const ICE = prom([C19,C20,C21]);
+
+  const EQ=nv('EQ'), DIV=nv('DIV'), RES=nv('RES');
+  const ISM = prom([EQ,DIV,RES]);
+  const MSDA = prom([IPC,IAE,IIM,IEB,IAB,ICE]);
+
+  return {IPC,IAE,IIM,IEB,IAB,ICE,EQ,DIV,RES,ISM,MSDA};
+}
+
+// ===== Dibujo Canvas (nuevo código) =====
+function drawRadarV3(){
+  const cv = g('plot'); const ctx=cv.getContext('2d');
+  const W=cv.width, H=cv.height; ctx.clearRect(0,0,W,H);
+  const cx=W/2, cy=H/2, R=Math.min(W,H)*0.38;
+  const ring = t=> R*(t/100);
+
+  // fondo de anillos
+  ctx.strokeStyle="#e1e1e1"; ctx.lineWidth=1;
+  for(let t=0;t<=100;t+=10){ ctx.beginPath(); ctx.arc(cx,cy,ring(t),0,2*Math.PI); ctx.stroke(); }
+
+  // ejes MSDA
+  const axes = ["IPC","IAE","IIM","IEB","IAB","ICE"];
+  const labels = [
+    "Índice de\nPercepción\nCognitiva (IPC)",
+    "Índice de\nAdaptabilidad\nEspacial (IAE)",
+    "Índice de\nInmersión y\nMemoria (IIM)",
+    "Índice de\nEficiencia\nBioestructural (IEB)",
+    "Índice de\nAdaptabilidad\nBiofísica (IAB)",
+    "Índice de\nConectividad\nEcosistémica (ICE)"
+  ];
+  const ang = axes.map((_,i)=> -Math.PI/2 + i*(2*Math.PI/axes.length));
+
+  ctx.setLineDash([5,5]);
+  labels.forEach((lab,i)=>{
+    const a=ang[i], x=cx+R*Math.cos(a), y=cy+R*Math.sin(a);
+    ctx.strokeStyle="#888"; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y); ctx.stroke();
+    const lx=cx+(R+28)*Math.cos(a), ly=cy+(R+28)*Math.sin(a);
+    ctx.fillStyle="#333"; ctx.font="12px system-ui,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    lab.split("\n").forEach((s,k)=> ctx.fillText(s, lx, ly + (k-1)*14) );
+  });
+  ctx.setLineDash([]);
+
+  const p = calcAll();
+
+  // polígono MSDA
+  const poly = axes.map((k,i)=>{
+    const v = Math.max(0, Math.min(100, p[k] || 0));
+    return [ cx + ring(v)*Math.cos(ang[i]), cy + ring(v)*Math.sin(ang[i]) ];
+  });
+  ctx.beginPath(); poly.forEach((pt,i)=> i?ctx.lineTo(pt[0],pt[1]) : ctx.moveTo(pt[0],pt[1])); ctx.closePath();
+  ctx.fillStyle="rgba(0,0,0,.06)"; ctx.strokeStyle="#111"; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+
+  // vértices MSDA + valor
+  ctx.fillStyle="#111"; ctx.font="11px system-ui,sans-serif"; ctx.textAlign="center";
+  poly.forEach((pt,i)=>{ ctx.beginPath(); ctx.arc(pt[0],pt[1],3,0,2*Math.PI); ctx.fill(); ctx.fillText(String(Math.round(p[axes[i]]||0)), pt[0], pt[1]-12); });
+
+  // triángulo ISM (90°, 210°, 330°)
+  const a3 = [-Math.PI/2, -Math.PI/2 + 2*Math.PI/3, -Math.PI/2 + 4*Math.PI/3];
+  const vals = [p.EQ||0, p.DIV||0, p.RES||0].map(v=>Math.max(0,Math.min(100,v)));
+  const tri = a3.map((a,i)=> [ cx + ring(vals[i])*Math.cos(a), cy + ring(vals[i])*Math.sin(a) ]);
+  ctx.beginPath(); tri.forEach((pt,i)=> i?ctx.lineTo(pt[0],pt[1]) : ctx.moveTo(pt[0],pt[1])); ctx.closePath();
+  ctx.fillStyle="rgba(200,0,0,.12)"; ctx.strokeStyle="rgba(200,0,0,.9)"; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+
+  // etiquetas ISM
+  const labs3=["Equidad de acceso","Diversidad de usos y actores","Resonancia comunitaria"];
+  ctx.fillStyle="#b00000"; ctx.font="12px system-ui,sans-serif";
+  tri.forEach((pt,i)=>{ ctx.beginPath(); ctx.arc(pt[0],pt[1],3,0,2*Math.PI); ctx.fill(); ctx.fillText(`${labs3[i]} (${Math.round(vals[i])})`, pt[0], pt[1]-12); });
+
+  // título
+  ctx.fillStyle="#111"; ctx.font="16px system-ui,sans-serif"; ctx.textAlign="center";
+  ctx.fillText(`MSDA/TERC + ISM — ${g('projName').value || 'Proyecto sin nombre'}`, cx, 28);
+
+  // resumen
+  g('dump').textContent = [
+    `IPC=${p.IPC?.toFixed(2)} | IAE=${p.IAE?.toFixed(2)} | IIM=${p.IIM?.toFixed(2)} | IEB=${p.IEB?.toFixed(2)} | IAB=${p.IAB?.toFixed(2)} | ICE=${p.ICE?.toFixed(2)}`,
+    `MSDA prom=${p.MSDA?.toFixed(2)} → ${escala(p.MSDA)}`,
+    `EQ=${p.EQ?.toFixed(2)} | DIV=${p.DIV?.toFixed(2)} | RES=${p.RES?.toFixed(2)}`,
+    `ISM prom=${p.ISM?.toFixed(2)} → ${escala(p.ISM)}`
+  ].join('\n');
+}
+
+// ===== CSV (plantilla v3) =====
+function csvToRows(text){
+  const lines = text.trim().split(/\r?\n/);
+  const head = lines[0].split(',').map(s=>s.trim());
+  const rows = lines.slice(1).map(l=>{
+    const cells = l.split(',').map(s=>s.trim()); const o={}; head.forEach((h,i)=>o[h]=cells[i]??''); return o;
+  });
+  return {head, rows};
+}
+function loadRow(obj){
+  const map = { projName:'Proyecto', EQ:'Equidad', DIV:'Diversidad', RES:'Resonancia' };
+  const ids = ['projName','C1','C2','C3','C4','C5','C6','C7','C8','C9','C10','C11','C12','C13','C14','C15','C16','C17','C18','C19','C20','C21','EQ','DIV','RES'];
+  ids.forEach(id=>{
+    const key = map[id] || id;
+    if(obj[key]!==undefined && obj[key]!==''){ g(id).value = obj[key]; }
+  });
+}
+
+g('csvPick').addEventListener('change', (ev)=>{
+  const f = ev.target.files[0]; if(!f) return;
+  const fr = new FileReader();
+  fr.onload = e => {
+    try {
+      const {rows} = csvToRows(e.target.result);
+      if(!rows.length) throw new Error('CSV vacío');
+      loadRow(rows[0]);
+    } catch(err){ alert('Error CSV: '+err.message); }
+  };
+  fr.readAsText(f, 'utf-8');
+});
+
+g('goCalc').addEventListener('click', drawRadarV3);
+g('goPNG').addEventListener('click', ()=>{
+  const a=document.createElement('a'); a.href=g('plot').toDataURL('image/png');
+  a.download=(g('projName').value||'radar_msda_ism_v3')+'.png'; a.click();
+});
+</script>
+</body>
+</html>
