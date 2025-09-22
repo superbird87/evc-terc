@@ -1,0 +1,247 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TERC·ISM — Visor y Generador</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<header>
+  <h1>TERC·ISM — Visor y Generador</h1>
+  <div class="statusbar" id="status">Listo. Carga un CSV o usa la demo.</div>
+</header>
+
+<main>
+  <section class="controls">
+    <div class="card">
+      <h2>1. Cargar datos</h2>
+      <div class="subgrid">
+        <button id="btnPick">Seleccionar CSV desde mi PC</button>
+        <button id="btnDemo" class="secondary">Usar demo (5 casos)</button>
+        <button id="btnClear" class="secondary">Limpiar</button>
+        <a id="btnSpec" class="btn" href="./data/demo_proyectos_TERC_ISM.csv" download>Descargar plantilla CSV</a>
+      </div>
+      <p class="small">El CSV debe contener columnas: <code>proyecto, autor, fecha, lugar, tipologia, materialidad, escala, terc, ism, descripcion</code>.</p>
+      <input id="fileInput" type="file" accept=".csv,text/csv" style="display:none">
+      <div class="progress"><span id="prog"></span></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Exportar narrativas</h2>
+      <div class="subgrid">
+        <button id="btnMD">Descargar Markdown</button>
+        <button id="btnJSONL">Descargar JSONL</button>
+        <button id="btnEstado" class="secondary">Estado de la tabla</button>
+        <a class="btn" href="./data/plantilla_semantica_v1.json" download>Plantilla semántica</a>
+      </div>
+      <p class="small">Las exportaciones se generan a partir de las filas actualmente cargadas.</p>
+    </div>
+  </section>
+
+  <section class="card alert">
+    <h2>Guía rápida</h2>
+    <ul class="steps">
+      <li><b>Seleccionar CSV desde mi PC</b>: abre un selector y procesa el archivo local sin subidas a servidores.</li>
+      <li><b>Usar demo</b>: carga 5 casos de ejemplo para validar el flujo.</li>
+      <li><b>Markdown</b>: genera un archivo <code>.md</code> con todas las narrativas.</li>
+      <li><b>JSONL</b>: genera un <code>.jsonl</code> (una narrativa por línea), útil para IA.</li>
+      <li><b>Estado de la tabla</b>: muestra conteos y validaciones rápidas.</li>
+    </ul>
+  </section>
+
+  <div class="grid">
+    <section>
+      <h2>Tabla</h2>
+      <div id="tableContainer"><div id="table">Sin datos.</div></div>
+    </section>
+    <aside>
+      <h2>Narrativa</h2>
+      <select id="rowSelect"></select>
+      <textarea id="output" readonly></textarea>
+    </aside>
+  </div>
+</main>
+
+<footer>Publicación en GitHub Pages con rutas relativas. </footer>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+const CSV_URL = './data/demo_proyectos_TERC_ISM.csv';
+const PLANTILLA_URL = './data/plantilla_semantica_v1.json';
+const PATRONES_URL = './data/patrones_semanticos.json';
+
+// UI refs
+const statusEl = document.getElementById('status');
+const outEl = document.getElementById('output');
+const rowSel = document.getElementById('rowSelect');
+const tableHost = document.getElementById('table');
+const fileInput = document.getElementById('fileInput');
+const prog = document.getElementById('prog');
+
+const btnPick = document.getElementById('btnPick');
+const btnDemo = document.getElementById('btnDemo');
+const btnClear = document.getElementById('btnClear');
+const btnMD = document.getElementById('btnMD');
+const btnJSONL = document.getElementById('btnJSONL');
+const btnEstado = document.getElementById('btnEstado');
+
+let DATA=[], PLANTILLA=null, PATRONES=null;
+
+function setStatus(msg){ statusEl.textContent = msg; }
+function setProgress(p){ prog.style.width = Math.min(100, Math.max(0,p)) + '%'; }
+
+async function loadJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('No se pudo cargar '+url);
+  return await r.json();
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+function etiquetaYadjetivos(valor, defs){
+  const d = defs.find(x => valor>=x.min && valor<=x.max) || defs[0];
+  const adj1 = pick(d.adjetivos);
+  const adj2 = pick(d.adjetivos.filter(a=>a!==adj1));
+  return {etiqueta:d.etiqueta, adj1, adj2};
+}
+function renderTabla(rows){
+  if(!rows.length){ tableHost.textContent='Sin datos.'; return; }
+  const cols = Object.keys(rows[0]);
+  const thead = '<thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead>';
+  const body = rows.map(r=>'<tr>'+cols.map(c=>`<td>${r[c] ?? ''}</td>`).join('')+'</tr>').join('');
+  tableHost.innerHTML = '<table>'+thead+'<tbody>'+body+'</tbody></table>';
+}
+function evalDictamen(reglas, row){
+  for(const r of reglas){
+    try{
+      const expr = r.si.replace(/terc/g, row.terc).replace(/ism/g, row.ism);
+      if(Function('return ('+expr+')')()) return r.texto;
+    }catch(e){}
+  }
+  return 's/i';
+}
+function compilar(row){
+  const t = etiquetaYadjetivos(Number(row.terc), PATRONES.terc);
+  const i = etiquetaYadjetivos(Number(row.ism), PATRONES.ism);
+  const frase_terc = PATRONES.plantillasAux.frase_terc[t.etiqueta]
+                      .replace('{adj1}', t.adj1).replace('{adj2}', t.adj2);
+  const frase_ism = PATRONES.plantillasAux.frase_ism[i.etiqueta]
+                      .replace('{adj1}', i.adj1).replace('{adj2}', i.adj2);
+  const dictamen = evalDictamen(PLANTILLA.dictamen_reglas, row);
+  let txt = PLANTILLA.prompt;
+  for (const k of Object.keys(row)){
+    txt = txt.replaceAll('{{'+k+'}}', row[k] ?? '');
+  }
+  txt = txt.replaceAll('{{frase_terc}}', frase_terc)
+           .replaceAll('{{frase_ism}}', frase_ism)
+           .replaceAll('{{dictamen}}', dictamen);
+  return txt;
+}
+function actualizarSalida(index){
+  const r = DATA[index];
+  if(!r){ outEl.value=''; return; }
+  outEl.value = compilar(r);
+}
+function poblarSelector(rows){
+  const options = rows.map((r,idx)=>`<option value="${idx}">${idx+1}. ${r.proyecto || '(sin nombre)'}</option>`);
+  rowSel.innerHTML = options.join('');
+  rowSel.onchange = (e)=> actualizarSalida(e.target.value);
+  actualizarSalida(0);
+}
+function validarColumnas(rows){
+  const requeridas = ["proyecto","autor","fecha","lugar","tipologia","materialidad","escala","terc","ism","descripcion"];
+  const faltantes = requeridas.filter(k => !(k in rows[0]));
+  return {ok:faltantes.length===0, faltantes};
+}
+
+// CSV from demo (download) or local (File)
+function postLoadCSV(rows){
+  // Normaliza tipos
+  DATA = rows.map(r => ({
+    ...r,
+    terc: Number(r.terc),
+    ism: Number(r.ism)
+  }));
+  // Valida columnas
+  if(DATA.length && !validarColumnas(DATA).ok){
+    const f = validarColumnas(DATA).faltantes.join(', ');
+    setStatus('CSV cargado con columnas faltantes: '+f);
+  }else{
+    setStatus('Listo · filas: '+ DATA.length);
+  }
+  renderTabla(DATA);
+  poblarSelector(DATA);
+  setProgress(100);
+  setTimeout(()=>setProgress(0), 600);
+}
+
+// Buttons
+btnPick.onclick = ()=> fileInput.click();
+fileInput.onchange = ()=>{
+  const file = fileInput.files?.[0];
+  if(!file){ return; }
+  setStatus('Leyendo CSV local: '+file.name);
+  setProgress(10);
+  Papa.parse(file, {
+    header:true, skipEmptyLines:true, worker:true, encoding:'utf-8',
+    chunk: () => setProgress(60),
+    complete: (res)=>{ setProgress(90); postLoadCSV(res.data); },
+    error: (err)=>{ setStatus('Error CSV local: '+err.message); setProgress(0); }
+  });
+};
+
+btnDemo.onclick = ()=>{
+  setStatus('Cargando demo…');
+  setProgress(20);
+  Papa.parse(CSV_URL, {
+    download:true, header:true, skipEmptyLines:true, worker:true,
+    complete: (res)=>{ setProgress(90); postLoadCSV(res.data); },
+    error: (err)=>{ setStatus('Error CSV demo: '+err.message); setProgress(0); }
+  });
+};
+
+btnClear.onclick = ()=>{
+  DATA=[]; renderTabla(DATA); rowSel.innerHTML=''; outEl.value='';
+  setStatus('Datos limpiados. Usa “Seleccionar CSV” o “Usar demo”.');
+  setProgress(0);
+};
+
+btnMD.onclick = ()=>{
+  if(!DATA.length){ setStatus('No hay datos para exportar.'); return; }
+  let md = DATA.map(r => `## ${r.proyecto || 'Proyecto'}\n\n${compilar(r)}\n`).join('\n');
+  descargar(md, 'narrativas.md', 'text/markdown');
+};
+btnJSONL.onclick = ()=>{
+  if(!DATA.length){ setStatus('No hay datos para exportar.'); return; }
+  let lines = DATA.map(r => JSON.stringify({proyecto: r.proyecto, narrativa: compilar(r)}));
+  descargar(lines.join('\n'), 'narrativas.jsonl', 'application/json');
+};
+btnEstado.onclick = ()=>{
+  if(!DATA.length){ setStatus('Sin datos.'); return; }
+  const n = DATA.length;
+  const nanTerc = DATA.filter(r=> Number.isNaN(r.terc)).length;
+  const nanIsm = DATA.filter(r=> Number.isNaN(r.ism)).length;
+  setStatus(`Filas: ${n} · terc inválidos: ${nanTerc} · ism inválidos: ${nanIsm}`);
+};
+
+function descargar(text, filename, mime){
+  const blob = new Blob([text], {type: mime || 'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  URL.revokeObjectURL(url); a.remove();
+}
+
+// Boot JSONs
+(async function boot(){
+  try{
+    setStatus('Cargando plantillas…');
+    [PLANTILLA, PATRONES] = await Promise.all([fetch(PLANTILLA_URL).then(r=>r.json()), fetch(PATRONES_URL).then(r=>r.json())]);
+    setStatus('Listo. Usa “Seleccionar CSV” para cargar desde tu PC o “Usar demo”.');
+  }catch(e){
+    setStatus('Error inicial: '+e.message);
+  }
+})();
+</script>
+</body>
+</html>
