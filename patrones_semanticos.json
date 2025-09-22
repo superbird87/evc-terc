@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "rangos": {
+    "alto": {
+      "min": 80,
+      "max": 101
+    },
+    "medio": {
+      "min": 60,
+      "max": 80
+    },
+    "bajo": {
+      "min": 40,
+      "max": 60
+    },
+    "muy_bajo": {
+      "min": 0,
+      "max": 40
+    }
+  },
+  "msda": {
+    "IPC": {
+      "alto": [
+        "excelente legibilidad cognitiva y riqueza sensorial"
+      ],
+      "medio": [
+        "buena claridad perceptual con matices contextuales"
+      ],
+      "bajo": [
+        "lectura parcial con sobrecarga o empobrecimiento sensorial"
+      ],
+      "muy_bajo": [
+        "opacidad perceptual y baja legibilidad"
+      ]
+    },
+    "IAE": {
+      "alto": [
+        "alta plasticidad y adaptabilidad tipológica"
+      ],
+      "medio": [
+        "capacidad de ajuste espacial suficiente"
+      ],
+      "bajo": [
+        "adaptabilidad condicionada por rigideces morfológicas"
+      ],
+      "muy_bajo": [
+        "espacio poco dúctil frente a cambios de uso"
+      ]
+    },
+    "IIM": {
+      "alto": [
+        "inmersión potente y memoria espacial duradera"
+      ],
+      "medio": [
+        "experiencia envolvente con buenos anclajes memorísticos"
+      ],
+      "bajo": [
+        "inmersión intermitente y recuerdo moderado"
+      ],
+      "muy_bajo": [
+        "baja implicación y débil huella mnemónica"
+      ]
+    },
+    "IEB": {
+      "alto": [
+        "eficiencia geométrica/estructural destacada"
+      ],
+      "medio": [
+        "rendimiento bioestructural adecuado"
+      ],
+      "bajo": [
+        "ineficiencias locales en forma y soporte"
+      ],
+      "muy_bajo": [
+        "estructura ineficiente o sobredimensionada"
+      ]
+    },
+    "IAB": {
+      "alto": [
+        "adaptabilidad biofísica notable (energía/agua/confort)"
+      ],
+      "medio": [
+        "respuesta biofísica correcta con margen de mejora"
+      ],
+      "bajo": [
+        "desempeño biofísico limitado por decisiones de envolvente"
+      ],
+      "muy_bajo": [
+        "bajo desempeño térmico/energético e hídrico"
+      ]
+    },
+    "ICE": {
+      "alto": [
+        "alta conectividad ecosistémica y ciclo de materiales"
+      ],
+      "medio": [
+        "vínculos ecosistémicos aceptables"
+      ],
+      "bajo": [
+        "conectividad ecológica fragmentaria"
+      ],
+      "muy_bajo": [
+        "desacople ecosistémico y baja biofilia"
+      ]
+    }
+  },
+  "ism": {
+    "Equidad": {
+      "alto": [
+        "acceso ampliamente equitativo (físico, económico y cultural)"
+      ],
+      "medio": [
+        "acceso razonablemente inclusivo"
+      ],
+      "bajo": [
+        "acceso restringido por barreras blandas"
+      ],
+      "muy_bajo": [
+        "acceso socialmente limitado"
+      ]
+    },
+    "Diversidad": {
+      "alto": [
+        "gran diversidad de usos y actores"
+      ],
+      "medio": [
+        "mezcla funcional/social suficiente"
+      ],
+      "bajo": [
+        "diversidad acotada y poco transversal"
+      ],
+      "muy_bajo": [
+        "monocultivo de usos y baja diversidad social"
+      ]
+    },
+    "Resonancia": {
+      "alto": [
+        "fuerte resonancia comunitaria y memoria colectiva"
+      ],
+      "medio": [
+        "reconocimiento social localizado"
+      ],
+      "bajo": [
+        "resonancia social intermedia"
+      ],
+      "muy_bajo": [
+        "impacto comunitario tenue"
+      ]
+    }
+  },
+  "diccionario_estilo": {
+    "tono": "académico-crítico",
+    "personas": "tercera persona",
+    "prohibidos": [
+      "clichés vacíos",
+      "adjetivación superlativa sin evidencia"
+    ],
+    "preferencias": [
+      "concretar decisiones espaciales",
+      "mencionar trade-offs"
+    ]
+  }
+}
