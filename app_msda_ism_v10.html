@@ -281,62 +281,165 @@ function descEVC(val){
   return 'Resonancia cognitiva deficiente; predominio de lo utilitario sobre lo simbiótico. El espacio funciona pero no genera memorabilidad significativa.';
 }
 
+
 function drawRadar(){
-  const cv=g('radar'),ctx=cv.getContext('2d');
-  const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)*0.38;
+  const cv=document.getElementById('radar'), ctx=cv.getContext('2d');
+  const W=cv.width, H=cv.height, cx=W/2, cy=H/2, R=Math.min(W,H)*0.38;
+  const ring = t => R*(t/100);
+
+  // Paleta por índice (idéntica al requerimiento)
+  const axes = ['IPC','IAE','IIM','IEB','IAB','ICE'];
+  const axisColors = ['#8e44ad','#3498db','#e67e22','#27ae60','#d35400','#16a085'];
+  const axisLabels = [
+    'Índice de Percepción Cognitiva (IPC)',
+    'Índice de Adaptabilidad Espacial (IAE)',
+    'Índice de Inmersión y Memoria (IIM)',
+    'Índice de Eficiencia Bioestructural (IEB)',
+    'Índice de Adaptabilidad Biofísica (IAB)',
+    'Índice de Conectividad Ecosistémica (ICE)'
+  ];
+  const ang = axes.map((_,i)=> -Math.PI/2 + i*(2*Math.PI/axes.length));
+
+  const p = calcAll();
+
   ctx.clearRect(0,0,W,H);
-  const ring=t=>R*(t/100);
-  ctx.strokeStyle="#e1e1e1";ctx.lineWidth=1;
-  for(let t=0;t<=100;t+=10){ctx.beginPath();ctx.arc(cx,cy,ring(t),0,2*Math.PI);ctx.stroke()}
-  const axes=['IPC','IAE','IIM','IEB','IAB','ICE'];
-const labelFull=[
-  'Índice de Percepción Cognitiva (IPC)',
-  'Índice de Adaptabilidad Espacial (IAE)',
-  'Índice de Inmersión y Memoria (IIM)',
-  'Índice de Eficiencia Bioestructural (IEB)',
-  'Índice de Adaptabilidad Biofísica (IAB)',
-  'Índice de Conectividad Ecosistémica (ICE)'
-];
-const labelColors=['#3f51b5','#0d47a1','#6d4c41','#1b5e20','#4e342e','#00695c'];
-// Características por índice para anotar dentro del radar
-const featuresByAxis={
-  'IPC': ['C1 Carga Informativa del Espacio','C2 Diversidad Perceptual','C3 Conectividad Sensorial','C4 Accesibilidad Cognitiva'],
-  'IAE': ['C5 Plasticidad Ambiental','C6 Complejidad vs. Legibilidad','C7 Resonancia Cognitiva','C8 Interacción Biofílica'],
-  'IIM': ['C9 Engagement Espacial','C10 Fluidez de Navegación','C11 Efecto Memorístico','C12 Resonancia Emocional'],
-  'IEB': ['C13 Eficiencia Geométrica','C14 Optimización Estructural','C15 Uso de Biomateriales'],
-  'IAB': ['C16 Eficiencia Energética','C17 Adaptabilidad Térmica','C18 Captación y Uso de Agua'],
-  'ICE': ['C19 Integración con la Naturaleza','C20 Ciclo de Materiales','C21 Bienestar Biofílico']
-};
-  const ang=axes.map((_,i)=>-Math.PI/2+i*(2*Math.PI/axes.length));
-  ctx.setLineDash([5,5]);
-  labelFull.forEach((lab,i)=>{
-    const a=ang[i],x=cx+R*Math.cos(a),y=cy+R*Math.sin(a);
-    ctx.strokeStyle="#888";ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(x,y);ctx.stroke();
-    const lx=cx+(R+30)*Math.cos(a),ly=cy+(R+30)*Math.sin(a);
-    ctx.fillStyle=labelColors[i]||"#333";ctx.font="bold 14px system-ui,sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
-    lab.split("\n").forEach((s,k)=>ctx.fillText(s,lx,ly+(k-1)*14));
+
+  // Círculos concéntricos cada 10 con mayor contraste cada 20
+  for(let t=0;t<=100;t+=10){
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    ctx.lineWidth = (t%20===0)? 1.8 : 1.0;
+    ctx.strokeStyle = (t%20===0)? '#bdbdbd' : '#e6e6e6';
+    ctx.arc(cx,cy,ring(t),0,2*Math.PI);
+    ctx.stroke();
+  }
+
+  // Escala diagonal 0–100 ~30°, con muescas y rótulo "Escala 0–100" (como en la imagen)
+  (function drawDiagonalScale(){
+    const a = Math.PI/6; // ≈30°
+    const x0 = cx, y0 = cy;
+    const x1 = cx + R*Math.cos(a), y1 = cy + R*Math.sin(a);
+
+    // Línea diagonal punteada
+    ctx.save();
+    ctx.setLineDash([3,5]);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#9aa0a6';
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+
+    // Muescas perpendiculares y números en gris (0–100 cada 10)
+    const ap = a + Math.PI/2; // perpendicular
+    ctx.setLineDash([]);
+    for(let t=0;t<=100;t+=10){
+      const rr = ring(t);
+      const px = cx + rr*Math.cos(a);
+      const py = cy + rr*Math.sin(a);
+      const len = (t%20===0)? 10 : 6;
+      // muesca
+      ctx.beginPath();
+      ctx.strokeStyle = '#9aa0a6';
+      ctx.lineWidth = 1;
+      ctx.moveTo(px - len*Math.cos(ap), py - len*Math.sin(ap));
+      ctx.lineTo(px + len*Math.cos(ap), py + len*Math.sin(ap));
+      ctx.stroke();
+      // número (ligeramente desplazado hacia fuera de la diagonal)
+      ctx.fillStyle = (t%20===0)? '#5f6368' : '#7a7f85';
+      ctx.font = '11px system-ui,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const off = 12; // desplazamiento fuera de la diagonal
+      ctx.fillText(String(t), px + off*Math.cos(ap), py + off*Math.sin(ap));
+    }
+
+    // Rótulo "Escala 0–100" cerca del extremo exterior, rotado
+    ctx.translate(x1, y1);
+    ctx.rotate(a);
+    ctx.fillStyle = '#6b6f75';
+    ctx.font = 'bold 12px system-ui,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Escala 0–100', 8, -6);
+    ctx.restore();
+  })();
+
+  // Líneas radiales punteadas, coloreadas por eje, y etiquetas por índice con el mismo color
+  for(let i=0;i<axes.length;i++){
+    const a = ang[i];
+    const x = cx + R*Math.cos(a), y = cy + R*Math.sin(a);
+
+    // radial punteada con color del eje
+    ctx.save();
+    ctx.setLineDash([5,6]);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = axisColors[i] + '99';
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y); ctx.stroke();
+    ctx.restore();
+
+    // etiqueta del eje (color idéntico)
+    const lx = cx + (R+34)*Math.cos(a);
+    const ly = cy + (R+34)*Math.sin(a);
+    ctx.fillStyle = axisColors[i];
+    ctx.font = 'bold 14px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    axisLabels[i].split('\n').forEach((line,k)=>{
+      ctx.fillText(line, lx, ly + (k-0.5)*14);
+    });
+  }
+
+  // Polígono MSDA con relleno suave y marcadores/valores
+  const msdaVals = axes.map(k => Math.max(0,Math.min(100, p[k] ?? 0)));
+  const poly = msdaVals.map((v,i)=>[
+    cx + ring(v)*Math.cos(ang[i]),
+    cy + ring(v)*Math.sin(ang[i])
+  ]);
+
+  ctx.beginPath();
+  poly.forEach((pt,i)=> i? ctx.lineTo(pt[0],pt[1]) : ctx.moveTo(pt[0],pt[1]));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 2;
+  ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle = '#111';
+  ctx.font = '11px system-ui,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  poly.forEach((pt,i)=>{
+    ctx.beginPath(); ctx.arc(pt[0],pt[1],3,0,2*Math.PI); ctx.fill();
+    ctx.fillText(String(Math.round(msdaVals[i])), pt[0], pt[1]-8);
   });
-  ctx.setLineDash([]);
-  const p=calcAll();
-  const poly=axes.map((k,i)=>{
-    const v=Math.max(0,Math.min(100,p[k]||0));
-    return [cx+ring(v)*Math.cos(ang[i]),cy+ring(v)*Math.sin(ang[i])];
+
+  // Triángulo ISM en ángulos equiespaciados
+  const a3 = [-Math.PI/2, -Math.PI/2 + 2*Math.PI/3, -Math.PI/2 + 4*Math.PI/3];
+  const vals3 = [p.EQ ?? 0, p.DIV ?? 0, p.RES ?? 0].map(v=>Math.max(0,Math.min(100,v)));
+  const tri = a3.map((a,i)=>[cx + ring(vals3[i])*Math.cos(a), cy + ring(vals3[i])*Math.sin(a)]);
+
+  ctx.beginPath();
+  tri.forEach((pt,i)=> i? ctx.lineTo(pt[0],pt[1]) : ctx.moveTo(pt[0],pt[1]));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(192, 0, 0, 0.12)';
+  ctx.strokeStyle = 'rgba(192, 0, 0, 0.9)';
+  ctx.lineWidth = 2;
+  ctx.fill(); ctx.stroke();
+
+  const labs3 = ['Equidad de acceso','Diversidad de usos y actores','Resonancia comunitaria'];
+  ctx.fillStyle = '#b00000';
+  ctx.font = 'bold 13px system-ui,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  tri.forEach((pt,i)=>{
+    ctx.beginPath(); ctx.arc(pt[0],pt[1],3,0,2*Math.PI); ctx.fill();
+    ctx.fillText(`${labs3[i]} (${Math.round(vals3[i])})`, pt[0], pt[1]-8);
   });
-  ctx.beginPath();poly.forEach((pt,i)=>i?ctx.lineTo(pt[0],pt[1]):ctx.moveTo(pt[0],pt[1]));ctx.closePath();
-  ctx.fillStyle="rgba(0,0,0,.06)";ctx.strokeStyle="#111";ctx.lineWidth=2;ctx.fill();ctx.stroke();
-  ctx.fillStyle="#111";ctx.font="11px system-ui,sans-serif";ctx.textAlign="center";
-  poly.forEach((pt,i)=>{ctx.beginPath();ctx.arc(pt[0],pt[1],3,0,2*Math.PI);ctx.fill();const val=Math.round(p[axes[i]]||0);ctx.fillText(String(val),pt[0],pt[1]-12)});
-  // ISM triangle
-  const a3=[-Math.PI/2,-Math.PI/2+2*Math.PI/3,-Math.PI/2+4*Math.PI/3];
-  const vals=[p.EQ||0,p.DIV||0,p.RES||0].map(v=>Math.max(0,Math.min(100,v)));
-  const tri=a3.map((a,i)=>[cx+ring(vals[i])*Math.cos(a),cy+ring(vals[i])*Math.sin(a)]);
-  ctx.beginPath();tri.forEach((pt,i)=>i?ctx.lineTo(pt[0],pt[1]):ctx.moveTo(pt[0],pt[1]));ctx.closePath();
-  ctx.fillStyle="rgba(200,0,0,.12)";ctx.strokeStyle="rgba(200,0,0,.9)";ctx.lineWidth=2;ctx.fill();ctx.stroke();
-  const labs3=["Equidad de acceso","Diversidad de usos y actores","Resonancia comunitaria"];
-  ctx.fillStyle="#b00000";ctx.font="bold 13px system-ui,sans-serif";
-  tri.forEach((pt,i)=>{ctx.beginPath();ctx.arc(pt[0],pt[1],3,0,2*Math.PI);ctx.fill();ctx.fillText(`${labs3[i]} (${Math.round(vals[i])})`,pt[0],pt[1]-12)});
-  // título
-  ctx.fillStyle="#111";ctx.font="16px system-ui,sans-serif";ctx.textAlign="center";ctx.fillText(`MSDA/TERC + ISM — ${g('projName').value||'Proyecto sin nombre'}`,cx,28);
+
+  // Título
+  ctx.fillStyle = '#111';
+  ctx.font = '16px system-ui,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`MSDA/TERC + ISM — ${document.getElementById('projName').value||'Proyecto sin nombre'}`, cx, 28);
 }
 
 function drawBars(){
